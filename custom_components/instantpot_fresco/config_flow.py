@@ -7,9 +7,9 @@ import logging
 
 from .const import (
     DOMAIN,
-    CONF_USERNAME, CONF_PASSWORD, CONF_CLIENT_ID, CONF_REGION,
+    CONF_USERNAME, CONF_PASSWORD, CONF_REGION,
     CONF_DEVICE_ID, CONF_MODULE_IDX, CONF_MODEL_ID,
-    DEFAULT_REGION, DEFAULT_MODULE_IDX, DEFAULT_MODEL_ID,
+    DEFAULT_REGION, DEFAULT_MODULE_IDX, DEFAULT_MODEL_ID, CLIENT_ID,
 )
 from .api import CognitoTokenManager, KitchenOSClient
 
@@ -19,7 +19,6 @@ _LOGGER = logging.getLogger(__name__)
 STEP_CREDS_SCHEMA = vol.Schema({
     vol.Required(CONF_USERNAME): str,
     vol.Required(CONF_PASSWORD): str,
-    vol.Required(CONF_CLIENT_ID): str,  # e.g., 5qucjsjb9i1ahnddonctmp9hba
     vol.Optional(CONF_REGION, default=DEFAULT_REGION): str,  # "us-east-2"
     vol.Optional(CONF_MODULE_IDX, default=DEFAULT_MODULE_IDX): int,
     vol.Optional(CONF_MODEL_ID, default=DEFAULT_MODEL_ID): str,
@@ -27,7 +26,7 @@ STEP_CREDS_SCHEMA = vol.Schema({
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Instant Pot (Fresco Cloud)."""
-    VERSION = 3
+    VERSION = 4
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -52,7 +51,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             session=session,
             username=user_input[CONF_USERNAME],
             password=user_input[CONF_PASSWORD],
-            client_id=user_input[CONF_CLIENT_ID],
+            client_id=CLIENT_ID,  # Use hardcoded client ID
             region=user_input.get(CONF_REGION, DEFAULT_REGION),
         )
         try:
@@ -139,7 +138,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         schema = vol.Schema({
             vol.Required(CONF_USERNAME, default=data.get(CONF_USERNAME, "")): str,
             vol.Required(CONF_PASSWORD, default=data.get(CONF_PASSWORD, "")): str,
-            vol.Required(CONF_CLIENT_ID, default=data.get(CONF_CLIENT_ID, "")): str,
             vol.Optional(CONF_REGION, default=data.get(CONF_REGION, DEFAULT_REGION)): str,
             vol.Required(CONF_DEVICE_ID, default=data.get(CONF_DEVICE_ID, "")): str,
             vol.Optional(CONF_MODULE_IDX, default=data.get(CONF_MODULE_IDX, DEFAULT_MODULE_IDX)): int,

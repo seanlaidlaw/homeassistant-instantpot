@@ -7,7 +7,6 @@
           "data": {
             "username": "Username",
             "password": "Password",
-            "client_id": "Client ID",
             "region": "Region",
             "module_idx": "Module Index",
             "model_id": "Model ID"

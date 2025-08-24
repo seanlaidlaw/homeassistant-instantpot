@@ -13,8 +13,8 @@ import homeassistant.helpers.config_validation as cv
 from .const import (
     DOMAIN,
     CONF_DEVICE_ID, CONF_MODULE_IDX, CONF_MODEL_ID,
-    CONF_USERNAME, CONF_PASSWORD, CONF_CLIENT_ID, CONF_REGION,
-    PRESSURE_MAP, VENT_MAP,
+    CONF_USERNAME, CONF_PASSWORD, CONF_REGION,
+    PRESSURE_MAP, VENT_MAP, CLIENT_ID, CONF_CLIENT_ID,
 )
 from .api import KitchenOSClient, CognitoTokenManager
 
@@ -104,7 +104,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         session=session,
         username=entry.data[CONF_USERNAME],
         password=entry.data[CONF_PASSWORD],
-        client_id=entry.data[CONF_CLIENT_ID],
+        client_id=CLIENT_ID,  # Use hardcoded client ID
         region=entry.data[CONF_REGION],
     )
     client = KitchenOSClient(

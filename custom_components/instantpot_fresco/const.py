@@ -3,7 +3,7 @@ DOMAIN = "instantpot_fresco"
 # Config keys
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
-CONF_CLIENT_ID = "client_id"      # e.g. 5qucjsjb9i1ahnddonctmp9hba
+CONF_CLIENT_ID = "client_id"
 CONF_REGION = "region"            # e.g. us-east-2
 CONF_DEVICE_ID = "device_id"      # discovered via /user/
 CONF_MODULE_IDX = "module_idx"    # usually 0
@@ -13,6 +13,7 @@ CONF_MODEL_ID = "model_id"        # appliance model id
 DEFAULT_MODULE_IDX = 0
 DEFAULT_MODEL_ID = "kitchenos:InstantBrands:InstantPotProPlus"
 DEFAULT_REGION = "us-east-2"
+CLIENT_ID = "5qucjsjb9i1ahnddonctmp9hba"  # Hardcoded client ID
 
 # API base
 BASE_API = "https://api.fresco-kitchenos.com"
