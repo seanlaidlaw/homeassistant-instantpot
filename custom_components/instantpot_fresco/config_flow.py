@@ -33,6 +33,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         super().__init__()
         self._creds: dict | None = None
         self._devices: list[tuple[str, str]] = []
+        self._attr_icon = "mdi:pot-steam"
 
     async def async_step_init(self, user_input=None) -> FlowResult:
         """Initialize the config flow."""

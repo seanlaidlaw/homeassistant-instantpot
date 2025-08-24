@@ -1,6 +1,6 @@
 {
   "domain": "instantpot_fresco",
-  "name": "InstantPot (Fresco Cloud)",
+  "name": "InstantPot",
   "codeowners": ["@seanlaidlaw"],
   "version": "0.2.0",
   "documentation": "https://github.com/seanlaidlaw/homeassistant-instantpot",

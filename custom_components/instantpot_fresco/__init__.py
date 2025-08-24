@@ -9,6 +9,8 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers import aiohttp_client
 from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers import device_registry as dr
+
 
 from .const import (
     DOMAIN,
@@ -20,7 +22,9 @@ from .api import KitchenOSClient, CognitoTokenManager
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list = []
+PLATFORMS: list = ["sensor"]
+
+
 
 async def async_get_options_flow(config_entry: ConfigEntry):
     """Return the options flow handler."""
@@ -113,12 +117,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         device_id=entry.data[CONF_DEVICE_ID],
         module_idx=entry.data.get(CONF_MODULE_IDX, 0),
     )
+
+    from .api import NotificationsManager
+    notif = NotificationsManager(session=session, token_mgr=tm)
+    await notif.start()
+
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
         "client": client,
         "token_mgr": tm,
+        "notifications": notif,
         "model_id": entry.data.get(CONF_MODEL_ID),
     }
+
+    # Register a device in the registry so the sensor has a parent device
+    device_registry = dr.async_get(hass)
+    dev_id = entry.data[CONF_DEVICE_ID]
+    model = entry.data.get(CONF_MODEL_ID, "Instant Pot")
+    device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, dev_id)},
+        manufacturer="Instant Brands",
+        model=model,
+        name=f"Instant Pot ({dev_id})",
+    )
 
     async def _wrap(call: ServiceCall, coro_factory):
         try:
@@ -275,9 +297,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, SERVICE_START_PRESSURE_COOK, _start_pressure, schema=SCHEMA_START_PRESSURE)
     hass.services.async_register(DOMAIN, SERVICE_UPDATE_PRESSURE_COOK, _update_pressure, schema=SCHEMA_UPDATE_PRESSURE)
 
+    # forward platforms
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    hass.data[DOMAIN].pop(entry.entry_id, None)
-    return True
+    # stop websocket
+    data = hass.data[DOMAIN].pop(entry.entry_id, None)
+    if data and data.get("notifications"):
+        await data["notifications"].stop()
 
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

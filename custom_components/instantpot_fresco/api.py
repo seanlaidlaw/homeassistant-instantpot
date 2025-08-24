@@ -5,6 +5,11 @@ import aiohttp
 import asyncio
 import logging
 from time import monotonic
+from typing import Callable, Dict
+import time
+import json
+import logging
+
 
 from .const import BASE_API
 
@@ -276,3 +281,147 @@ class KitchenOSClient:
         # Just clean up any internal state if needed
         self._tm = None
         _LOGGER.debug("KitchenOSClient closed")
+
+_WS_LOGGER = logging.getLogger(__name__)
+
+class NotificationsManager:
+    """
+    Maintains a single WebSocket connection to notifications.fresco-kitchenos.com
+    using the current IdToken. Dispatches state changes to listeners per device_id.
+    Auto-reconnects with backoff and refreshes tokens via CognitoTokenManager.
+    """
+
+    def __init__(self, session: aiohttp.ClientSession, token_mgr: CognitoTokenManager):
+        self._session = session
+        self._tm = token_mgr
+        self._listeners: Dict[str, set[Callable[[dict], None]]] = {}
+        self._states: Dict[str, dict] = {}
+        self._availability: Dict[str, bool] = {}
+        self._task: asyncio.Task | None = None
+        self._stop = asyncio.Event()
+
+    # ---- public API used by sensor entities ----
+    def add_listener(self, device_id: str, cb: Callable[[dict], None]) -> Callable[[], None]:
+        self._listeners.setdefault(device_id, set()).add(cb)
+        # push last known immediately if we have it
+        if device_id in self._states:
+            try:
+                cb(self._states[device_id])
+            except Exception:
+                pass
+        def _remove():
+            self._listeners.get(device_id, set()).discard(cb)
+        return _remove
+
+    def get_state(self, device_id: str) -> dict | None:
+        return self._states.get(device_id)
+
+    def is_available(self, device_id: str) -> bool:
+        # if we’ve never seen this device, assume True while connected
+        return self._availability.get(device_id, self._task is not None and not self._task.done())
+
+    async def start(self):
+        if self._task and not self._task.done():
+            return
+        self._stop.clear()
+        self._task = asyncio.create_task(self._run(), name="instantpot_fresco_ws")
+
+    async def stop(self):
+        self._stop.set()
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except Exception:
+                pass
+            self._task = None
+
+    # ---- run loop ----
+    async def _run(self):
+        backoff = 1
+        while not self._stop.is_set():
+            try:
+                await self._pump()
+                backoff = 1  # clean exit → reset backoff
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                _WS_LOGGER.warning("Notifications WS error: %s", e)
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 30)
+
+        _WS_LOGGER.debug("Notifications loop stopped")
+
+    async def _pump(self):
+        # ensure fresh tokens; prefer IdToken
+        await self._tm.login()  # will refresh if needed
+        idt = await self._tm.get_id_token()
+        if not idt:
+            raise RuntimeError("No IdToken available for notifications")
+
+        url = f"wss://notifications.fresco-kitchenos.com/?idToken={idt}"
+        headers = {"Origin": "https://app.fresco-kitchenos.com"}
+
+        _WS_LOGGER.debug("Connecting WS: %s", url)
+        async with self._session.ws_connect(url, headers=headers, heartbeat=30) as ws:
+            _WS_LOGGER.info("Notifications connected")
+            # mark everything available while connected
+            for dev in list(self._availability.keys()):
+                self._availability[dev] = True
+
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    self._handle_message(msg.data)
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    raise RuntimeError(f"WS error frame: {ws.exception()}")
+                elif msg.type == aiohttp.WSMsgType.CLOSED:
+                    break
+
+        _WS_LOGGER.info("Notifications disconnected")
+        # mark all known devices unavailable on disconnect; entities will show unavailable
+        for dev in list(self._availability.keys()):
+            self._availability[dev] = False
+            self._dispatch(dev)
+
+    def _handle_message(self, data: str):
+        try:
+            obj = json.loads(data)
+        except Exception:
+            _WS_LOGGER.debug("Non-JSON message: %s", data[:200])
+            return
+
+        # Handle occasional "Forbidden" informational message from the edge
+        if obj.get("message") == "Forbidden":
+            _WS_LOGGER.warning("Notifications returned 'Forbidden' message: %s", obj)
+            return
+
+        dev_id = obj.get("device_id")
+        if not dev_id:
+            return
+
+        # normalize into a compact state dict we expose to sensors
+        state = {
+            "device_state": obj.get("state"),
+            "capability": None,
+        }
+        cap = (obj.get("capability") or {})
+        if cap:
+            cap_state = cap.get("state") or {}
+            state["capability"] = {
+                "id": cap_state.get("id"),
+                "name": cap_state.get("name"),
+                "text": cap_state.get("text"),
+                "progress": cap_state.get("progress"),
+                "reference_capability_id": cap.get("reference_capability_id"),
+            }
+
+        self._states[dev_id] = state
+        self._availability[dev_id] = True
+        self._dispatch(dev_id)
+
+    def _dispatch(self, device_id: str):
+        for cb in list(self._listeners.get(device_id, ())):
+            try:
+                cb(self._states.get(device_id) or {})
+            except Exception:
+                pass
