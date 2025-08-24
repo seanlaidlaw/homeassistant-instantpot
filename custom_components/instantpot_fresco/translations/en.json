@@ -1,0 +1,20 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "Instant Pot (Fresco Cloud)",
+          "description": "Enter your API access token and device ID.",
+          "data": {
+            "access_token": "Access Token (Bearer JWT)",
+            "device_id": "Device ID",
+            "module_idx": "Module Index",
+            "model_id": "Model ID"
+          }
+        }
+      },
+      "abort": {
+        "already_configured": "This device is already configured."
+      }
+    }
+  }
+  

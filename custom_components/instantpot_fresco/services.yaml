@@ -1,0 +1,67 @@
+cancel:
+  name: Cancel
+  description: Cancel the current program.
+start_keep_warm:
+  name: Start Keep Warm
+  description: Start Keep Warm with either a temperature (°C) or preset.
+  fields:
+    temp_c:
+      description: Temperature in Celsius (25–95). Provide temp_c OR preset.
+      example: 70
+    preset:
+      description: 'Temperature preset: Low or High. Provide temp_c OR preset.'
+      example: High
+    duration_seconds:
+      description: Duration in seconds
+      example: 3600
+update_keep_warm:
+  name: Update Keep Warm
+  description: Update Keep Warm settings.
+  fields:
+    temp_c:
+      description: New temperature in Celsius
+      example: 75
+    preset:
+      description: New preset (Low/High)
+      example: Low
+    duration_seconds:
+      description: New duration in seconds
+      example: 5400
+start_pressure_cook:
+  name: Start Pressure Cook
+  description: Start Pressure Cook with settings.
+  fields:
+    pressure:
+      description: Pressure level (Low/High/Max)
+      example: High
+    cook_time_seconds:
+      description: Cook time in seconds
+      example: 600
+    venting:
+      description: Venting mode (Natural/Pulse/Quick/NaturalQuick)
+      example: NaturalQuick
+    vent_time_seconds:
+      description: Optional venting time in seconds
+      example: 300
+    nutriboost:
+      description: Enable NutriBoost (true/false)
+      example: false
+update_pressure_cook:
+  name: Update Pressure Cook
+  description: Update running Pressure Cook settings (any subset).
+  fields:
+    pressure:
+      description: New pressure (Low/High/Max)
+      example: Low
+    cook_time_seconds:
+      description: New cook time in seconds
+      example: 900
+    venting:
+      description: New venting mode
+      example: Natural
+    vent_time_seconds:
+      description: New venting time in seconds
+      example: 180
+    nutriboost:
+      description: Toggle NutriBoost
+      example: true
