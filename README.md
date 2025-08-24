@@ -1,15 +1,15 @@
 # Home Assistant – Instant Pot (Fresco Cloud)
 
-Control your Instant Pot via the official Fresco KitchenOS cloud endpoints by providing your **Bearer access token** and **device_id** captured from the vendor app. This integration exposes Home Assistant services (no entities) you can call from automations, scripts, or the UI.
+Control your Instant Pot via the official Fresco KitchenOS cloud endpoints by providing your InstantConnect app login email and password.
+This integration exposes Home Assistant services you can call from automations, scripts, or the UI.
 
-> ⚠️ Safety: This only calls the same cloud API your official app uses. It **does not** bypass safety mechanisms or talk to the cooker locally. Use at your own risk and never leave pressure appliances unattended.
 
 ## Install (HACS custom repo)
 1. In HACS → Integrations → **Custom repositories**, add: `https://github.com/seanlaidlaw/homeassistant-instantpot`
 Category: Integration.
 2. Install **Instant Pot (Fresco Cloud)** and restart Home Assistant.
 3. Settings → Devices & Services → **Add Integration** → *Instant Pot (Fresco Cloud)*.
-4. Paste your **Access Token (Bearer JWT)** and **Device ID**. (Module index usually `0`.)
+4. Enter your InstantPot email and password in the configuration dialog - this is used to renew the access token and fetch devices tracked by InstantConnect.
 
 ## Services
 
@@ -47,9 +47,6 @@ data:
 service: instantpot_fresco.cancel
 ```
 
-## Getting token & device_id
-
-Use your own capture (e.g., Apple rvictl/Charles). Do not share tokens publicly. Tokens may expire; if commands stop working, update the token in the integration options.
 
 ## License
 

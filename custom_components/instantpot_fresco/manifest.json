@@ -1,13 +1,12 @@
 {
-    "domain": "instantpot_fresco",
-    "name": "InstantPot (Fresco Cloud)",
-    "codeowners": ["@seanlaidlaw"],
-    "version": "0.1.0",
-    "documentation": "https://github.com/seanlaidlaw/homeassistant-instantpot",
-    "issue_tracker": "https://github.com/seanlaidlaw/homeassistant-instantpot/issues",
-    "iot_class": "cloud_push",
-    "integration_type": "hub",
-    "config_flow": true,
-    "requirements": []
-  }
-  
+  "domain": "instantpot_fresco",
+  "name": "InstantPot (Fresco Cloud)",
+  "codeowners": ["@seanlaidlaw"],
+  "version": "0.2.0",
+  "documentation": "https://github.com/seanlaidlaw/homeassistant-instantpot",
+  "issue_tracker": "https://github.com/seanlaidlaw/homeassistant-instantpot/issues",
+  "iot_class": "cloud_push",
+  "integration_type": "hub",
+  "config_flow": true,
+  "requirements": []
+}

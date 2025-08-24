@@ -11,20 +11,28 @@ from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
-    DOMAIN, CONF_TOKEN, CONF_DEVICE_ID, CONF_MODULE_IDX, CONF_MODEL_ID,
-    PRESSURE_MAP, VENT_MAP
+    DOMAIN,
+    CONF_DEVICE_ID, CONF_MODULE_IDX, CONF_MODEL_ID,
+    CONF_USERNAME, CONF_PASSWORD, CONF_CLIENT_ID, CONF_REGION,
+    PRESSURE_MAP, VENT_MAP,
 )
-from .api import KitchenOSClient
+from .api import KitchenOSClient, CognitoTokenManager
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list = []
+
+async def async_get_options_flow(config_entry: ConfigEntry):
+    """Return the options flow handler."""
+    from .config_flow import OptionsFlowHandler
+    return OptionsFlowHandler(config_entry)
 
 SERVICE_CANCEL = "cancel"
 SERVICE_START_KEEP_WARM = "start_keep_warm"
 SERVICE_UPDATE_KEEP_WARM = "update_keep_warm"
 SERVICE_START_PRESSURE_COOK = "start_pressure_cook"
 SERVICE_UPDATE_PRESSURE_COOK = "update_pressure_cook"
+
 
 def _duration_to_seconds(v) -> int | None:
     """Support HA duration selector (dict) or string or seconds int."""
@@ -50,13 +58,12 @@ def _duration_to_seconds(v) -> int | None:
         return int(timedelta(hours=h, minutes=m, seconds=s).total_seconds())
     return None
 
-# ---------------- Schemas (relaxed) ----------------
 SCHEMA_CANCEL = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 SCHEMA_START_KEEP_WARM = vol.Schema({
     vol.Optional("temp_c"): vol.All(int, vol.Range(min=25, max=95)),
     vol.Optional("preset"): vol.In(["Low", "High"]),
-    vol.Optional("duration"): object,            # duration selector
+    vol.Optional("duration"): object,
     vol.Optional("duration_seconds"): vol.All(int, vol.Range(min=1, max=24*60*60)),
 }, extra=vol.ALLOW_EXTRA)
 
@@ -93,15 +100,23 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = aiohttp_client.async_get_clientsession(hass)
 
+    tm = CognitoTokenManager(
+        session=session,
+        username=entry.data[CONF_USERNAME],
+        password=entry.data[CONF_PASSWORD],
+        client_id=entry.data[CONF_CLIENT_ID],
+        region=entry.data[CONF_REGION],
+    )
     client = KitchenOSClient(
         session=session,
-        access_token=entry.data[CONF_TOKEN],
+        token_mgr=tm,
         device_id=entry.data[CONF_DEVICE_ID],
         module_idx=entry.data.get(CONF_MODULE_IDX, 0),
     )
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
         "client": client,
+        "token_mgr": tm,
         "model_id": entry.data.get(CONF_MODEL_ID),
     }
 
@@ -121,11 +136,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data = call.data
         temp_c = data.get("temp_c")
         preset = data.get("preset")
-        dur_sec = data.get("duration_seconds")
-        if dur_sec is None:
-            dur_sec = _duration_to_seconds(data.get("duration"))
+        dur_sec = data.get("duration_seconds") or _duration_to_seconds(data.get("duration"))
 
-        # business rule: must provide exactly one of temp_c or preset
         if (temp_c is None and preset is None) or (temp_c is not None and preset is not None):
             raise HomeAssistantError("Provide either 'temp_c' OR 'preset' (not both).")
         if not dur_sec:
@@ -154,9 +166,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data = call.data
         temp_c = data.get("temp_c")
         preset = data.get("preset")
-        dur_sec = data.get("duration_seconds")
-        if dur_sec is None:
-            dur_sec = _duration_to_seconds(data.get("duration"))
+        dur_sec = data.get("duration_seconds") or _duration_to_seconds(data.get("duration"))
 
         settings = []
         if temp_c is not None and preset is not None:
@@ -172,25 +182,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "reference_setting_id": "kitchenos:InstantBrands:TemperatureSetting",
                 "value": {"type": "nominal", "reference_value_id": preset_id, "reference_unit_id": None}
             })
-        if dur_sec is not None:
+        if dur_sec:
             settings.append({
                 "reference_setting_id": "kitchenos:InstantBrands:TimeSetting",
                 "value": {"type": "numeric", "value": int(dur_sec), "reference_unit_id": "cckg:Second", "reference_value_id": None}
             })
         if not settings:
             raise HomeAssistantError("Provide at least one of temp_c/preset/duration.")
-
         capability = {"reference_capability_id": "kitchenos:InstantBrands:KeepWarm", "settings": settings}
         await _wrap(call, lambda: client.execute("kitchenos:Command:Update", capability=capability))
 
     async def _start_pressure(call: ServiceCall):
         data = call.data
-        cook_sec = data.get("cook_time_seconds")
-        if cook_sec is None:
-            cook_sec = _duration_to_seconds(data.get("cook_time"))
-        vent_sec = data.get("vent_time_seconds")
-        if vent_sec is None:
-            vent_sec = _duration_to_seconds(data.get("vent_time"))
+        cook_sec = data.get("cook_time_seconds") or _duration_to_seconds(data.get("cook_time"))
+        vent_sec = data.get("vent_time_seconds") or _duration_to_seconds(data.get("vent_time"))
         pressure = data.get("pressure")
         venting = data.get("venting", "Natural")
         nutriboost = bool(data.get("nutriboost", False))
@@ -229,12 +234,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def _update_pressure(call: ServiceCall):
         data = call.data
-        cook_sec = data.get("cook_time_seconds")
-        if cook_sec is None:
-            cook_sec = _duration_to_seconds(data.get("cook_time"))
-        vent_sec = data.get("vent_time_seconds")
-        if vent_sec is None:
-            vent_sec = _duration_to_seconds(data.get("vent_time"))
+        cook_sec = data.get("cook_time_seconds") or _duration_to_seconds(data.get("cook_time"))
+        vent_sec = data.get("vent_time_seconds") or _duration_to_seconds(data.get("vent_time"))
 
         settings = []
         if "pressure" in data and data["pressure"] in PRESSURE_MAP:

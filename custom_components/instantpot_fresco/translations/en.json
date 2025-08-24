@@ -3,18 +3,36 @@
       "step": {
         "user": {
           "title": "Instant Pot (Fresco Cloud)",
-          "description": "Enter your API access token and device ID.",
+          "description": "Enter your Fresco Cloud credentials to connect to your Instant Pot.",
           "data": {
-            "access_token": "Access Token (Bearer JWT)",
-            "device_id": "Device ID",
+            "username": "Username",
+            "password": "Password",
+            "client_id": "Client ID",
+            "region": "Region",
             "module_idx": "Module Index",
             "model_id": "Model ID"
+          },
+          "errors": {
+            "auth_failed": "Authentication failed. Please check your credentials.",
+            "cannot_fetch_user": "Could not fetch user profile. Please check your credentials."
+          }
+        },
+        "pick_device": {
+          "title": "Select Device",
+          "description": "Choose which Instant Pot device to connect to:",
+          "data": {
+            "device_id": "Device"
           }
         }
       },
       "abort": {
-        "already_configured": "This device is already configured."
+        "already_configured": "This device is already configured.",
+        "no_devices_found": "No Instant Pot devices found in your account."
+      },
+      "error": {
+        "auth_failed": "Login failed: {error}",
+        "cannot_fetch_user": "Could not fetch your devices: {error}"  
       }
     }
-  }
+}
   

@@ -2,6 +2,10 @@ cancel:
   name: Cancel
   description: Cancel the current program.
 
+reload:
+  name: Reload Integration
+  description: Reload the Instant Pot integration without restarting Home Assistant.
+
 start_keep_warm:
   name: Start Keep Warm
   description: Start Keep Warm with either a temperature (°C) or a preset.
